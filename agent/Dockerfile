@@ -57,3 +57,4 @@ WORKDIR /app
 COPY --from=builder /agent /app/
 
 ENTRYPOINT ./agent
+
