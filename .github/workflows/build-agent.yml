@@ -55,6 +55,13 @@ jobs:
             --tag shellhubio/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
 
+      - name: build image
+        if: ${{ github.event_name == 'pull_request' }} 
+        run: |
+          docker buildx build -f agent/Dockerfile.${{ matrix.dockerfile }} \
+            --tag shellhubio/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
+            --platform linux/${{ matrix.arch }} .
+
       - name: build tagged image
         if: ${{ github.event_name != 'pull_request' && contains(github.ref, 'refs/tags/v') }} 
         run: |
@@ -63,6 +70,7 @@ jobs:
             --platform linux/${{ matrix.arch }} .
 
   multiarch:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
 
