@@ -2,14 +2,14 @@ name: Build Agent
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     tags:
       - v*
     paths:
     - 'agent/**'
     - '.github/workflows/build-agent.yml'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
     paths:
     - 'agent/**'
     - '.github/workflows/build-agent.yml'
@@ -39,7 +39,7 @@ jobs:
 
       - name: login to docker hub
         if: ${{ github.event_name != 'pull_request' }}
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        run: echo "${{ secrets.DOCKER_PASSWORD_GOMEX }}" | docker login -u "${{ secrets.DOCKER_USERNAME_GOMEX }}" --password-stdin
 
       - name: Set up Docker Buildx
         uses: crazy-max/ghaction-docker-buildx@v3
@@ -51,21 +51,21 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }} 
         run: |
           docker buildx build -f agent/Dockerfile.${{ matrix.dockerfile }} \
-            --tag shellhubio/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
+            --tag gomex/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
 
       - name: build image tag and push 
         if: ${{ github.event_name != 'pull_request' && !contains(github.ref, 'refs/tags/v') }} 
         run: |
           docker buildx build --push -f agent/Dockerfile.${{ matrix.dockerfile }} \
-            --tag shellhubio/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
+            --tag gomex/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
 
       - name: build image tag and push from github tag
         if: ${{ github.event_name != 'pull_request' && contains(github.ref, 'refs/tags/v') }} 
         run: |
           docker buildx build --push -f agent/Dockerfile.${{ matrix.dockerfile }} \
-            --tag shellhubio/agent:${{ env.RELEASE_VERSION }}-${{ matrix.dockerfile }} \
+            --tag gomex/agent:${{ env.RELEASE_VERSION }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
 
   multiarch:
@@ -89,10 +89,10 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
             echo "Creating the manifest"
-            docker manifest create -a shellhubio/agent:${{ github.sha }} shellhubio/agent:${{ github.sha }}-amd64 shellhubio/agent:${{ github.sha }}-arm32v6 shellhubio/agent:${{ github.sha }}-arm32v7 shellhubio/agent:${{ github.sha }}-arm64v8
+            docker manifest create -a gomex/agent:${{ github.sha }} gomex/agent:${{ github.sha }}-amd64 gomex/agent:${{ github.sha }}-arm32v6 gomex/agent:${{ github.sha }}-arm32v7 gomex/agent:${{ github.sha }}-arm64v8
 
             echo "Running amd64 manifest annotation"
-            docker manifest annotate shellhubio/agent:${{ github.sha }} shellhubio/agent:${{ github.sha }}-amd64 --os linux --arch amd64
+            docker manifest annotate gomex/agent:${{ github.sha }} gomex/agent:${{ github.sha }}-amd64 --os linux --arch amd64
 
             archname=(arm32v6 arm32v7 arm64v8)
             arch=(arm arm arm64)
@@ -100,11 +100,11 @@ jobs:
 
             for ((i = 0; i < 3; i++))  ; do
               echo "Running ${archname[i]} manifest annotation"
-              docker manifest annotate shellhubio/agent:${{ github.sha }} shellhubio/agent:${{ github.sha }}-${archname[i]} --os linux --arch ${arch[i]} --variant ${variant[i]}
+              docker manifest annotate gomex/agent:${{ github.sha }} gomex/agent:${{ github.sha }}-${archname[i]} --os linux --arch ${arch[i]} --variant ${variant[i]}
             done
 
             echo "Pushing multiarch manifest"
-            docker manifest push shellhubio/agent:${{ github.sha }}
+            docker manifest push gomex/agent:${{ github.sha }}
 
       - name: build multiarch image from github tag
         if: contains(github.ref, 'refs/tags/v')
@@ -112,10 +112,10 @@ jobs:
           DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
             echo "Creating the manifest"
-            docker manifest create -a shellhubio/agent:${{ env.RELEASE_VERSION }} shellhubio/agent:${{ env.RELEASE_VERSION }}-amd64 shellhubio/agent:${{ env.RELEASE_VERSION }}-arm32v6 shellhubio/agent:${{ env.RELEASE_VERSION }}-arm32v7 shellhubio/agent:${{ env.RELEASE_VERSION }}-arm64v8
+            docker manifest create -a gomex/agent:${{ env.RELEASE_VERSION }} gomex/agent:${{ env.RELEASE_VERSION }}-amd64 gomex/agent:${{ env.RELEASE_VERSION }}-arm32v6 gomex/agent:${{ env.RELEASE_VERSION }}-arm32v7 gomex/agent:${{ env.RELEASE_VERSION }}-arm64v8
 
             echo "Running amd64 manifest annotation"
-            docker manifest annotate shellhubio/agent:${{ env.RELEASE_VERSION }} shellhubio/agent:${{ env.RELEASE_VERSION }}-amd64 --os linux --arch amd64
+            docker manifest annotate gomex/agent:${{ env.RELEASE_VERSION }} gomex/agent:${{ env.RELEASE_VERSION }}-amd64 --os linux --arch amd64
 
             archname=(arm32v6 arm32v7 arm64v8)
             arch=(arm arm arm64)
@@ -123,8 +123,8 @@ jobs:
 
             for ((i = 0; i < 3; i++))  ; do
               echo "Running ${archname[i]} manifest annotation"
-              docker manifest annotate shellhubio/agent:${{ env.RELEASE_VERSION }} shellhubio/agent:${{ env.RELEASE_VERSION }}-${archname[i]} --os linux --arch ${arch[i]} --variant ${variant[i]}
+              docker manifest annotate gomex/agent:${{ env.RELEASE_VERSION }} gomex/agent:${{ env.RELEASE_VERSION }}-${archname[i]} --os linux --arch ${arch[i]} --variant ${variant[i]}
             done
 
             echo "Pushing multiarch manifest"
-            docker manifest push shellhubio/agent:${{ env.RELEASE_VERSION }}
+            docker manifest push gomex/agent:${{ env.RELEASE_VERSION }}
