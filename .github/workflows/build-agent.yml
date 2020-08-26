@@ -48,25 +48,28 @@ jobs:
         run: echo ::set-env name=RELEASE_VERSION::${GITHUB_REF#refs/*/}
 
       - name: build image 
-        if: ${{ github.event_name == 'pull_request' }} 
-        run: |
-          docker buildx build -f agent/Dockerfile.${{ matrix.dockerfile }} \
-            --tag gomex/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
-            --platform linux/${{ matrix.arch }} .
-
-      - name: build image tag and push 
-        if: ${{ github.event_name != 'pull_request' && !contains(github.ref, 'refs/tags/v') }} 
+        if: ${{ !contains(github.ref, 'refs/tags/v') }} 
         run: |
           docker buildx build --push -f agent/Dockerfile.${{ matrix.dockerfile }} \
             --tag gomex/agent:${{ github.sha }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
 
-      - name: build image tag and push from github tag
-        if: ${{ github.event_name != 'pull_request' && contains(github.ref, 'refs/tags/v') }} 
+      - name: push the image
+        if: ${{ github.event_name != 'pull_request' && !contains(github.ref, 'refs/tags/v') }} 
+        run: |
+          docker push gomex/agent:${{ github.sha }}-${{ matrix.dockerfile }}
+
+      - name: build image from github tag
+        if: ${{ contains(github.ref, 'refs/tags/v') }} 
         run: |
           docker buildx build --push -f agent/Dockerfile.${{ matrix.dockerfile }} \
             --tag gomex/agent:${{ env.RELEASE_VERSION }}-${{ matrix.dockerfile }} \
             --platform linux/${{ matrix.arch }} .
+      
+      - name: push the image
+        if: ${{ github.event_name != 'pull_request' && contains(github.ref, 'refs/tags/v') }} 
+        run: |
+          docker push gomex/agent:${{ env.RELEASE_VERSION }}-${{ matrix.dockerfile }}
 
   multiarch:
     if: github.event_name != 'pull_request'
