@@ -73,13 +73,6 @@ jobs:
       if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
       working-directory: ${{ matrix.project }}
       run: go test -v ./...
-    
-    - name: SonarCloud Scan [Go]
-      if: matrix.project == 'api' && steps.filter.outputs.go == 'true'
-      uses: sonarsource/sonarcloud-github-action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     - name: Go build [Go]
       if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
