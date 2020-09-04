@@ -91,7 +91,7 @@ jobs:
         key: ${{ runner.OS }}-ui-${{ hashFiles('**/package-lock.json') }}
 
     - name: Install Node Dependencies [UI]
-      if: matrix.project == 'ui'
+      if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
       working-directory: ${{ matrix.project }}
       run: npm install
 
