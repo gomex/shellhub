@@ -76,23 +76,36 @@ export default {
     return {
       username: null,
       password: null,
+      error: false,
     };
   },
 
+  created() {
+    if (this.$route.query.token) {
+      this.$store.dispatch('auth/logout');
+      this.$store.dispatch('auth/loginToken', this.$route.query.token).then(() => {
+        this.$router.push('/');
+      });
+    }
+  },
+
   methods: {
-    login() {
-      this.$store
-        .dispatch('auth/login', {
-          username: this.username,
-          password: this.password,
-        })
-        .then(() => {
-          if (this.$route.query.redirect) {
-            this.$router.push(this.$route.query.redirect);
-          } else {
-            this.$router.push('/');
-          }
-        });
+    async login() {
+      try {
+        await this.$store
+          .dispatch('auth/login', {
+            username: this.username,
+            password: this.password,
+          });
+
+        if (this.$route.query.redirect) {
+          this.$router.push(this.$route.query.redirect);
+        } else {
+          this.$router.push('/');
+        }
+      } catch {
+        this.$store.dispatch('modals/showSnackbarError', true);
+      }
     },
   },
 };

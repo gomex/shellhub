@@ -127,8 +127,13 @@
             </v-tooltip>
             <SessionClose
               v-if="item.active"
-              :session="item"
+              :uid="item.uid"
+              :device="item.device_uid"
               @update="refresh"
+            />
+            <SessionPlay
+              :recorded="item.authenticated && item.recorded"
+              :uid="item.uid"
             />
           </template>
         </v-data-table>
@@ -146,12 +151,14 @@
 <script>
 
 import SessionClose from '@/components/session/SessionClose';
+import SessionPlay from '@/components/session/SessionPlay';
 
 export default {
   name: 'SessionList',
 
   components: {
     SessionClose,
+    SessionPlay,
   },
 
   data() {
@@ -226,9 +233,14 @@ export default {
 
     async getSessions() {
       const data = { perPage: this.pagination.itemsPerPage, page: this.pagination.page };
-      await this.$store.dispatch('sessions/fetch', data);
-      this.listSessions = this.$store.getters['sessions/list'];
-      this.numberSessions = this.$store.getters['sessions/getNumberSessions'];
+
+      try {
+        await this.$store.dispatch('sessions/fetch', data);
+        this.listSessions = this.$store.getters['sessions/list'];
+        this.numberSessions = this.$store.getters['sessions/getNumberSessions'];
+      } catch {
+        this.$store.dispatch('modals/showSnackbarError', true);
+      }
     },
   },
 };

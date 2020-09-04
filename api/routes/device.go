@@ -6,7 +6,6 @@ import (
 
 	"github.com/shellhub-io/shellhub/api/apicontext"
 	"github.com/shellhub-io/shellhub/api/deviceadm"
-	"github.com/shellhub-io/shellhub/api/firewall"
 	"github.com/shellhub-io/shellhub/pkg/api/paginator"
 	"github.com/shellhub-io/shellhub/pkg/models"
 )
@@ -18,6 +17,7 @@ const (
 	RenameDeviceURL  = "/devices/:uid"
 	OfflineDeviceURL = "/devices/:uid/offline"
 	LookupDeviceURL  = "/lookup"
+	UpdateStatusURL  = "/devices/:uid/:status"
 )
 
 const TenantIDHeader = "X-Tenant-ID"
@@ -25,6 +25,9 @@ const TenantIDHeader = "X-Tenant-ID"
 type filterQuery struct {
 	Filter string `query:"filter"`
 	paginator.Query
+	Status  string `query:"status"`
+	SortBy  string `query:"sort_by"`
+	OrderBy string `query:"order_by"`
 }
 
 func GetDeviceList(c apicontext.Context) error {
@@ -37,7 +40,7 @@ func GetDeviceList(c apicontext.Context) error {
 
 	query.Normalize()
 
-	devices, count, err := svc.ListDevices(c.Ctx(), query.Query, query.Filter)
+	devices, count, err := svc.ListDevices(c.Ctx(), query.Query, query.Filter, query.Status, query.SortBy, query.OrderBy)
 	if err != nil {
 		return err
 	}
@@ -127,26 +130,27 @@ func LookupDevice(c apicontext.Context) error {
 	}
 
 	svc := deviceadm.NewService(c.Store())
-	fw := firewall.NewService(c.Store())
 
 	device, err := svc.LookupDevice(c.Ctx(), query.Domain, query.Name)
 	if err != nil {
 		return nil
 	}
 
-	ok, err := fw.Evaluate(c.Ctx(), firewall.Request{
-		Hostname:  query.Name,
-		Namespace: query.Domain,
-		Username:  query.Username,
-		IPAddress: query.IPAddress,
-	})
+	return c.JSON(http.StatusOK, device)
+}
+
+func UpdatePendingStatus(c apicontext.Context) error {
+	svc := deviceadm.NewService(c.Store())
+
+	status := map[string]string{
+		"accept":  "accepted",
+		"reject":  "rejected",
+		"pending": "pending",
+		"unused":  "unused",
+	}
+	err := svc.UpdatePendingStatus(c.Ctx(), models.UID(c.Param("uid")), status[c.Param("status")])
 	if err != nil {
 		return err
 	}
-
-	if !ok {
-		return c.NoContent(http.StatusForbidden)
-	}
-
-	return c.JSON(http.StatusOK, device)
+	return c.JSON(http.StatusOK, nil)
 }

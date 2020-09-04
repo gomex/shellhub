@@ -62,6 +62,9 @@ func main() {
 	publicAPI.POST(routes.AuthDeviceURLV2, apicontext.Handler(routes.AuthDevice))
 	publicAPI.POST(routes.AuthUserURL, apicontext.Handler(routes.AuthUser))
 	publicAPI.POST(routes.AuthUserURLV2, apicontext.Handler(routes.AuthUser))
+	publicAPI.GET(routes.AuthUserURLV2, apicontext.Handler(routes.AuthUserInfo))
+
+	publicAPI.PUT(routes.UpdateUserURL, apicontext.Handler(routes.UpdateUser))
 
 	publicAPI.GET(routes.GetDeviceListURL, apicontext.Handler(routes.GetDeviceList))
 	publicAPI.GET(routes.GetDeviceURL, apicontext.Handler(routes.GetDevice))
@@ -69,18 +72,15 @@ func main() {
 	publicAPI.PATCH(routes.RenameDeviceURL, apicontext.Handler(routes.RenameDevice))
 	internalAPI.POST(routes.OfflineDeviceURL, apicontext.Handler(routes.OfflineDevice))
 	internalAPI.GET(routes.LookupDeviceURL, apicontext.Handler(routes.LookupDevice))
+	publicAPI.PATCH(routes.UpdateStatusURL, apicontext.Handler(routes.UpdatePendingStatus))
 
 	publicAPI.GET(routes.GetSessionsURL, apicontext.Handler(routes.GetSessionList))
 	publicAPI.GET(routes.GetSessionURL, apicontext.Handler(routes.GetSession))
 	internalAPI.PATCH(routes.SetSessionAuthenticatedURL, apicontext.Handler(routes.SetSessionAuthenticated))
 	internalAPI.POST(routes.CreateSessionURL, apicontext.Handler(routes.CreateSession))
 	internalAPI.POST(routes.FinishSessionURL, apicontext.Handler(routes.FinishSession))
-
-	publicAPI.GET(routes.GetFirewallRuleListURL, apicontext.Handler(routes.GetFirewallRuleList))
-	publicAPI.GET(routes.GetFirewallRuleURL, apicontext.Handler(routes.GetFirewallRule))
-	publicAPI.POST(routes.CreateFirewallRuleURL, apicontext.Handler(routes.CreateFirewallRule))
-	publicAPI.PUT(routes.UpdateFirewallRuleURL, apicontext.Handler(routes.UpdateFirewallRule))
-	publicAPI.DELETE(routes.DeleteFirewallRuleURL, apicontext.Handler(routes.DeleteFirewallRule))
+	internalAPI.POST(routes.RecordSessionURL, apicontext.Handler(routes.RecordSession))
+	publicAPI.GET(routes.PlaySessionURL, apicontext.Handler(routes.PlaySession))
 
 	publicAPI.GET(routes.GetStatsURL, apicontext.Handler(routes.GetStats))
 

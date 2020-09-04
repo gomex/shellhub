@@ -17,8 +17,27 @@ const router = new Router({
     {
       path: '/devices',
       name: 'devices',
-
       component: () => import(/* webpackChunkName: 'devices' */ './../views/Devices.vue'),
+      redirect: {
+        name: 'listDevices',
+      },
+      children: [
+        {
+          path: '',
+          name: 'listDevices',
+          component: () => import('./../components/device/DeviceList.vue'),
+        },
+        {
+          path: 'pending',
+          name: 'pendingDevices',
+          component: () => import('./../components/device/DevicePendingList.vue'),
+        },
+        {
+          path: 'rejected',
+          name: 'rejectedDevices',
+          component: () => import('./../components/device/DeviceRejectedList.vue'),
+        },
+      ],
     },
     {
       path: '/device/:id',
@@ -46,6 +65,21 @@ const router = new Router({
       component: () => import('./../views/FirewallRules.vue'),
     },
     {
+      path: '/settings',
+      name: 'settings',
+      component: () => import(/* webpackChunkName: 'settings' */ './../views/Settings.vue'),
+      redirect: {
+        name: 'profileSettings',
+      },
+      children: [
+        {
+          path: 'profile',
+          name: 'profileSettings',
+          component: () => import('./../components/setting/SettingProfile.vue'),
+        },
+      ],
+    },
+    {
       path: '*',
       name: 'NotFound',
       component: Dashboard,
@@ -65,6 +99,9 @@ router.beforeEach((to, from, next) => {
     return next(`/login?redirect=${to.path}`);
   }
   if (store.getters['auth/isLoggedIn']) {
+    if (to.path === '/login' && to.query.token) {
+      return next();
+    }
     return next('/');
   }
   return next();

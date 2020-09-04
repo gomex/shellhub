@@ -16,6 +16,8 @@ const (
 	SetSessionAuthenticatedURL = "/sessions/:uid"
 	CreateSessionURL           = "/sessions"
 	FinishSessionURL           = "/sessions/:uid/finish"
+	RecordSessionURL           = "/sessions/:uid/record"
+	PlaySessionURL             = "/sessions/:uid/play"
 )
 
 func GetSessionList(c apicontext.Context) error {
@@ -83,4 +85,29 @@ func FinishSession(c apicontext.Context) error {
 	svc := sessionmngr.NewService(c.Store())
 
 	return svc.DeactivateSession(c.Ctx(), models.UID(c.Param("uid")))
+}
+func RecordSession(c apicontext.Context) error {
+	var req struct {
+		UID    string `json:"uid"`
+		Record string `json:"record"`
+		Width  int    `json:"width"`
+		Height int    `json:"height"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return err
+	}
+
+	svc := sessionmngr.NewService(c.Store())
+
+	return svc.RecordSession(c.Ctx(), models.UID(c.Param("uid")), req.Record, req.Width, req.Height)
+}
+
+func PlaySession(c apicontext.Context) error {
+	svc := sessionmngr.NewService(c.Store())
+
+	record, _, err := svc.GetRecord(c.Ctx(), models.UID(c.Param("uid")))
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, record)
 }

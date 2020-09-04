@@ -50,8 +50,6 @@ func (s *Server) sessionHandler(session sshserver.Session) {
 		"session": session.Context().Value(sshserver.ContextKeySessionID),
 	}).Info("Handling session request")
 
-	fmt.Println("merda")
-
 	sess, err := NewSession(session.User(), session)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
@@ -85,7 +83,7 @@ func (s *Server) sessionHandler(session sshserver.Session) {
 			"target":   sess.Target,
 			"username": sess.User,
 			"session":  session.Context().Value(sshserver.ContextKeySessionID),
-		}).Error("Faield to register session")
+		}).Error("Failed to register session")
 	}
 
 	passwd, ok := session.Context().Value("password").(string)

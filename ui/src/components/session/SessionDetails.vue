@@ -39,13 +39,17 @@
 
         <v-spacer />
 
-        <v-icon
+        <SessionPlay
+          :uid="session.uid"
+          :recorded="session.authenticated && session.recorded"
+        />
+
+        <SessionClose
           v-if="session.active"
-          class="icons ml-1"
-          @click="closeSession()"
-        >
-          desktop_access_disabled
-        </v-icon>
+          :uid="session.uid"
+          :device="session.device_uid"
+          @update="refresh"
+        />
       </v-toolbar>
 
       <v-divider />
@@ -160,10 +164,17 @@
 
 <script>
 
+import SessionPlay from '@/components/session/SessionPlay';
+import SessionClose from '@/components/session/SessionClose';
 import moment from 'moment';
 
 export default {
   name: 'SessionDetails',
+
+  components: {
+    SessionPlay,
+    SessionClose,
+  },
 
   data() {
     return {
@@ -189,20 +200,24 @@ export default {
     } catch (error) {
       this.hide = false;
       this.dialog = true;
+      this.$store.dispatch('modals/showSnackbarError', true);
     }
   },
 
   methods: {
-    async closeSession() {
-      this.$store.dispatch('sessions/close');
-      this.closeSessionSnack = true;
-      await this.$store.dispatch('sessions/get', this.uid);
-      this.session = this.$store.getters['sessions/get'];
-    },
-
     redirect() {
       this.dialog = false;
       this.$router.push('/sessions');
+    },
+
+    async refresh() {
+      try {
+        this.closeSessionSnack = true;
+        await this.$store.dispatch('sessions/get', this.uid);
+        this.session = this.$store.getters['sessions/get'];
+      } catch {
+        this.$store.dispatch('modals/showSnackbarError', true);
+      }
     },
 
     convertDate(date) {

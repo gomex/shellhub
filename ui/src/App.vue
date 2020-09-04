@@ -9,7 +9,7 @@
     >
       <v-list>
         <v-list-item
-          v-for="item in items"
+          v-for="item in visibleItems"
           :key="item.title"
           :to="item.path"
           two-line
@@ -64,9 +64,9 @@
       <v-chip>
         <v-icon>help</v-icon>
       </v-chip>
-      <v-chip>
-        <v-icon>notifications</v-icon>
-      </v-chip>
+
+      <Notification />
+
       <v-menu
         offset-y
       >
@@ -111,7 +111,6 @@
             v-for="(item, index) in menu"
             :key="index"
             router
-            :to="item.path"
             @click.prevent="triggerClick(item)"
           >
             <v-list-item-title>
@@ -126,7 +125,7 @@
         class="pa-8"
         fluid
       >
-        <router-view />
+        <router-view :key="$route.fullPath" />
       </v-container>
       <v-snackbar
         v-model="copySnack"
@@ -134,14 +133,22 @@
       >
         Tenant ID copied to clipboard
       </v-snackbar>
+
+      <snackbar />
     </v-main>
   </v-app>
 </template>
 
 <script>
 
+import Notification from '@/components/app_bar/notification/Notification';
+
 export default {
   name: 'App',
+
+  components: {
+    Notification,
+  },
 
   data() {
     return {
@@ -168,14 +175,25 @@ export default {
           icon: 'security',
           title: 'Firewall Rules',
           path: '/firewall/rules',
+          hidden: !this.$env.isHosted,
         },
       ],
       menu: [
+        {
+          title: 'Settings',
+          type: 'path',
+          path: '/settings',
+          items: [{ title: 'Profile', path: '/settings/profile' }],
+        },
         {
           title: 'Logout',
           type: 'method',
           method: 'logout',
         },
+      ],
+      admins: [
+        ['Management', 'people_outline'],
+        ['Settings', 'settings'],
       ],
     };
   },
@@ -188,6 +206,10 @@ export default {
     isLoggedIn() {
       return this.$store.getters['auth/isLoggedIn'];
     },
+
+    visibleItems() {
+      return this.items.filter((item) => !item.hidden);
+    },
   },
 
   methods: {
@@ -199,7 +221,7 @@ export default {
     triggerClick(item) {
       switch (item.type) {
       case 'path':
-        this.$router.push(item.path);
+        this.$router.push(item.path).catch(() => {});
         break;
       case 'method':
         this[item.method]();

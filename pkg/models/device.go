@@ -16,6 +16,7 @@ type Device struct {
 	LastSeen  time.Time       `json:"last_seen" bson:"last_seen"`
 	Online    bool            `json:"online" bson:",omitempty"`
 	Namespace string          `json:"namespace" bson:",omitempty"`
+	Status    string          `json:"status" bson:"status,omitempty" validate:"oneof=accepted rejected pending unused`
 }
 
 type DeviceAuthClaims struct {
@@ -32,6 +33,7 @@ type DeviceAuthRequest struct {
 }
 
 type DeviceAuth struct {
+	Hostname  string          `json:hostname,omitempty"  validate:"hostname_rfc1123"`
 	Identity  *DeviceIdentity `json:"identity"`
 	PublicKey string          `json:"public_key"`
 	TenantID  string          `json:"tenant_id"`
@@ -58,4 +60,5 @@ type ConnectedDevice struct {
 	UID      string    `json:"uid"`
 	TenantID string    `json:"tenant_id" bson:"tenant_id"`
 	LastSeen time.Time `json:"last_seen" bson:"last_seen"`
+	Status   string    `json:"status" bson:"status"`
 }

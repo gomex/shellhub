@@ -23,9 +23,6 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v2
-      with:
-        # Disabling shallow clone is recommended for improving relevancy of reporting
-        fetch-depth: 0
     
     - uses: dorny/paths-filter@v2.2.0
       id: filter
@@ -47,27 +44,23 @@ jobs:
         go-version: 1.14
       id: go
 
-    - name: Get Go dependencies [Go]
-      if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
-      working-directory: ${{ matrix.project }}
-      run: go mod download
-
     - name: Cache Go files [Go]
       uses: actions/cache@v1
       if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+
+    - name: Get Go dependencies [Go]
+      if: matrix.project != 'ui'
+      working-directory: ${{ matrix.project }}
+      run: go mod download
 
     - name: Run Revive Action [Go]
-      if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
-      uses: docker://morphy/revive-action:v1
-      with:
-        config: .revive.toml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: matrix.project != 'ui'
+      run: |
+        go get -u github.com/mgechev/revive
+        revive -config .revive.toml --formatter stylish ./${{ matrix.project }}/...
 
     - name: Unit test [Go]
       if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
@@ -83,17 +76,12 @@ jobs:
       if: matrix.project == 'agent' && steps.filter.outputs.go == 'true'
       working-directory: ${{ matrix.project }}
       run: go build -tags docker -v ./...
-    
+
     - name: Set up Node.JS 12.16 [UI]
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
       uses: actions/setup-node@v1
       with:
           node-version: "12.16"
-
-    - name: Install Node Dependencies [UI]
-      if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
-      working-directory: ${{ matrix.project }}
-      run: npm install
 
     - name: Cache node modules [UI]
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
@@ -101,10 +89,11 @@ jobs:
       with:
         path: ui/node_modules
         key: ${{ runner.OS }}-ui-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.OS }}-ui-${{ env.cache-name }}-
-          ${{ runner.OS }}-ui-
-          ${{ runner.OS }}-
+
+    - name: Install Node Dependencies [UI]
+      if: matrix.project == 'ui'
+      working-directory: ${{ matrix.project }}
+      run: npm install
 
     - name: Unit test [UI]
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
@@ -123,12 +112,4 @@ jobs:
     - name: Save Code Linting Report JSON [UI]
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
       working-directory: ${{ matrix.project }}
-      run: npm run --silent lint:report | tee eslint_report.json
-      continue-on-error: true
-
-    - name: Annotate Code Linting Results [UI]
-      if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
-      uses: ataylorme/eslint-annotate-action@1.0.4
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        report-json: "ui/eslint_report.json"
+      run: npm run lint:no-fix

@@ -28,9 +28,11 @@ import (
 var AgentVersion string
 
 type ConfigOptions struct {
-	ServerAddress string `envconfig:"server_address"`
-	PrivateKey    string `envconfig:"private_key"`
-	TenantID      string `envconfig:"tenant_id"`
+	ServerAddress     string `envconfig:"server_address"`
+	PrivateKey        string `envconfig:"private_key"`
+	TenantID          string `envconfig:"tenant_id"`
+	KeepAliveInterval int    `envconfig:"keepalive_interval" default:"30"`
+	DeviceHostname    string `envconfig:"device_hostname"`
 }
 
 type Information struct {
@@ -98,6 +100,7 @@ func main() {
 		Info:     agent.Info,
 		Sessions: []string{},
 		DeviceAuth: &models.DeviceAuth{
+			Hostname:  opts.DeviceHostname,
 			Identity:  agent.Identity,
 			TenantID:  opts.TenantID,
 			PublicKey: string(keygen.EncodePublicKeyToPem(agent.pubKey)),
@@ -112,7 +115,18 @@ func main() {
 		return
 	}
 
-	server := sshd.NewSSHServer(opts.PrivateKey)
+	server := sshd.NewSSHServer(opts.PrivateKey, opts.KeepAliveInterval)
+
+	servername := strings.Split(info.Endpoints.SSH, ":")[0]
+
+	logrus.WithFields(logrus.Fields{
+		"server": servername,
+		"namespace": auth.Namespace,
+		"device": auth.Name,
+		"http_port": strings.Split(info.Endpoints.SSH, ":")[1],
+		"ssh_port": strings.Split(info.Endpoints.SSH, ":")[2],
+		"sshid": auth.Namespace + "." + auth.Name + "@" + servername,
+		}).Info("Server connection established")
 
 	router := mux.NewRouter()
 	router.HandleFunc("/ssh/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +185,7 @@ func main() {
 		}()
 	}
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(time.Duration(opts.KeepAliveInterval) * time.Second)
 
 	for range ticker.C {
 		sessions := make([]string, 0, len(server.Sessions))
@@ -183,6 +197,7 @@ func main() {
 			Info:     agent.Info,
 			Sessions: sessions,
 			DeviceAuth: &models.DeviceAuth{
+				Hostname:  opts.DeviceHostname,
 				Identity:  agent.Identity,
 				TenantID:  opts.TenantID,
 				PublicKey: string(keygen.EncodePublicKeyToPem(agent.pubKey)),

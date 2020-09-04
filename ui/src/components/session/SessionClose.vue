@@ -1,3 +1,5 @@
+Session Close:
+
 <template>
   <fragment>
     <v-tooltip bottom>
@@ -54,8 +56,12 @@ export default {
   name: 'SessionClose',
 
   props: {
-    session: {
-      type: Object,
+    uid: {
+      type: String,
+      required: true,
+    },
+    device: {
+      type: String,
       required: true,
     },
   },
@@ -63,14 +69,26 @@ export default {
   data() {
     return {
       dialog: false,
+      session: {},
+    };
+  },
+
+  created() {
+    this.session = {
+      uid: this.uid,
+      device_uid: this.device,
     };
   },
 
   methods: {
     async close() {
-      await this.$store.dispatch('sessions/close', this.session);
-      this.dialog = false;
-      this.$emit('update');
+      try {
+        await this.$store.dispatch('sessions/close', this.session);
+        this.dialog = false;
+        this.$emit('update');
+      } catch {
+        this.$store.dispatch('modals/showSnackbarError', true);
+      }
     },
   },
 };

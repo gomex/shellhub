@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://circleci.com/gh/shellhub-io/shellhub">
-    <img src="https://circleci.com/gh/shellhub-io/shellhub.svg?style=shield" alt="CircleCI">
+    <img src="https://github.com/shellhub-io/shellhub/workflows/QA/badge.svg" alt="GitHub Workflow">
   </a>
   <a href="https://gitter.im/shellhub-io/community">
     <img src="https://badges.gitter.im/shellhub-io/shellhub.svg">
@@ -68,7 +68,7 @@ $ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 Wait for all services to be ready then create initial user running:
 
 ```
-$ ./bin/add-user <username> <password>
+$ ./bin/add-user <username> <password> <email>
 ```
 
 ## Authors

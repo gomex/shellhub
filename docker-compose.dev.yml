@@ -10,6 +10,10 @@ services:
     volumes:
       - ./ssh:/go/src/github.com/shellhub-io/shellhub/ssh
       - ./pkg:/go/src/github.com/shellhub-io/shellhub/pkg
+    networks:
+      - shellhub
+    environment:
+      - SHELLHUB_HOSTED=${SHELLHUB_HOSTED}
   api:
     image: api
     build:
@@ -19,19 +23,31 @@ services:
     volumes:
       - ./api:/go/src/github.com/shellhub-io/shellhub/api
       - ./pkg:/go/src/github.com/shellhub-io/shellhub/pkg
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - shellhub
   ui:
     image: ui
     build:
-      context: ui
+      context: .
+      dockerfile: ui/Dockerfile
       target: development
     volumes:
       - ./ui:/src
+    networks:
+      - shellhub
+    environment:
+      - SHELLHUB_HOSTED=${SHELLHUB_HOSTED}
   gateway:
     image: gateway
     build:
-      context: gateway
+      context: .
+      dockerfile: gateway/Dockerfile
     environment:
       - SHELLHUB_VERSION=latest
+      - SHELLHUB_HOSTED=${SHELLHUB_HOSTED}
+    networks:
+      - shellhub
   agent:
     image: agent
     build:
@@ -52,6 +68,7 @@ services:
       - ./agent:/go/src/github.com/shellhub-io/shellhub/agent
       - ./pkg:/go/src/github.com/shellhub-io/shellhub/pkg
       - /:/host
+      - /dev:/dev
       - /etc/passwd:/etc/passwd
       - /etc/group:/etc/group
       - /var/run/docker.sock:/var/run/docker.sock
@@ -59,3 +76,10 @@ services:
       - api
       - ssh
       - gateway
+  mongo:
+    networks:
+      - shellhub
+
+networks:
+  shellhub:
+    name: shellhub_network

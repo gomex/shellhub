@@ -8,12 +8,14 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cnf/structhash"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/shellhub-io/shellhub/api/store"
 	"github.com/shellhub-io/shellhub/pkg/models"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 type Service interface {
@@ -56,7 +58,13 @@ func (s *service) AuthDevice(ctx context.Context, req *models.DeviceAuthRequest)
 		return nil, errors.New("device with this mac address already authored")
 	}
 
-	if err := s.store.AddDevice(ctx, device); err != nil {
+	validate := validator.New()
+	if err := validate.Struct(req); err != nil {
+		return nil, err
+	}
+	hostname := strings.ToLower(req.DeviceAuth.Hostname)
+
+	if err := s.store.AddDevice(ctx, device, hostname); err != nil {
 		return nil, err
 	}
 
@@ -101,17 +109,20 @@ func (s *service) AuthDevice(ctx context.Context, req *models.DeviceAuthRequest)
 }
 
 func (s *service) AuthUser(ctx context.Context, req models.UserAuthRequest) (*models.UserAuthResponse, error) {
-	user, err := s.store.GetUserByUsername(ctx, req.Username)
+	user, err := s.store.GetUserByUsername(ctx, strings.ToLower(req.Username))
 	if err != nil {
-		return nil, err
+		user, err = s.store.GetUserByEmail(ctx, strings.ToLower(req.Username))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	password := sha256.Sum256([]byte(req.Password))
 	if user.Password == hex.EncodeToString(password[:]) {
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, models.UserAuthClaims{
-			Name:   user.Username,
-			Admin:  true,
-			Tenant: user.TenantID,
+			Username: user.Username,
+			Admin:    true,
+			Tenant:   user.TenantID,
 			AuthClaims: models.AuthClaims{
 				Claims: "user",
 			},
@@ -127,8 +138,10 @@ func (s *service) AuthUser(ctx context.Context, req models.UserAuthRequest) (*mo
 
 		return &models.UserAuthResponse{
 			Token:  tokenStr,
+			Name:   user.Name,
 			User:   user.Username,
 			Tenant: user.TenantID,
+			Email:  user.Email,
 		}, nil
 	}
 
@@ -153,13 +166,11 @@ func loadKeys() (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	verifyBytes, err := ioutil.ReadFile(os.Getenv("PUBLIC_KEY"))
 	if err != nil {
 		return nil, nil, err
-
 	}
 
 	pubKey, err := jwt.ParseRSAPublicKeyFromPEM(verifyBytes)
 	if err != nil {
 		return nil, nil, err
-
 	}
 
 	return privKey, pubKey, nil

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shellhub-io/shellhub/api/apicontext"
 	"github.com/shellhub-io/shellhub/api/store"
 	"github.com/shellhub-io/shellhub/pkg/api/paginator"
 	"github.com/shellhub-io/shellhub/pkg/models"
@@ -28,7 +29,7 @@ func NewStore(db *mongo.Database) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) ListDevices(ctx context.Context, pagination paginator.Query, filters []models.Filter) ([]models.Device, int, error) {
+func (s *Store) ListDevices(ctx context.Context, pagination paginator.Query, filters []models.Filter, status string, sort string, order string) ([]models.Device, int, error) {
 	queryMatch, err := buildFilterQuery(filters)
 	if err != nil {
 		return nil, 0, err
@@ -63,9 +64,28 @@ func (s *Store) ListDevices(ctx context.Context, pagination paginator.Query, fil
 		},
 	}
 
-	query = append(query, bson.M{
-		"$sort": bson.M{"last_seen": -1},
-	})
+	if status != "" {
+		query = append([]bson.M{{
+			"$match": bson.M{
+				"status": status,
+			},
+		}}, query...)
+	}
+
+	orderVal := map[string]int{
+		"asc":  1,
+		"desc": -1,
+	}
+
+	if sort != "" {
+		query = append(query, bson.M{
+			"$sort": bson.M{sort: orderVal[order]},
+		})
+	} else {
+		query = append(query, bson.M{
+			"$sort": bson.M{"last_seen": -1},
+		})
+	}
 
 	// Apply filters if any
 	if len(queryMatch) > 0 {
@@ -73,7 +93,7 @@ func (s *Store) ListDevices(ctx context.Context, pagination paginator.Query, fil
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -142,7 +162,7 @@ func (s *Store) GetDevice(ctx context.Context, uid models.UID) (*models.Device, 
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -176,12 +196,16 @@ func (s *Store) DeleteDevice(ctx context.Context, uid models.UID) error {
 	return nil
 }
 
-func (s *Store) AddDevice(ctx context.Context, d models.Device) error {
-	hostname := strings.Replace(d.Identity.MAC, ":", "-", -1)
+func (s *Store) AddDevice(ctx context.Context, d models.Device, hostname string) error {
+	mac := strings.Replace(d.Identity.MAC, ":", "-", -1)
+	if hostname == "" {
+		hostname = mac
+	}
 
 	q := bson.M{
 		"$setOnInsert": bson.M{
-			"name": hostname,
+			"name":   hostname,
+			"status": "pending",
 		},
 		"$set": d,
 	}
@@ -204,7 +228,7 @@ func (s *Store) LookupDevice(ctx context.Context, namespace, name string) (*mode
 	}
 
 	device := new(models.Device)
-	if err := s.db.Collection("devices").FindOne(ctx, bson.M{"tenant_id": user.TenantID, "name": name}).Decode(&device); err != nil {
+	if err := s.db.Collection("devices").FindOne(ctx, bson.M{"tenant_id": user.TenantID, "name": name, "status": "accepted"}).Decode(&device); err != nil {
 		return nil, err
 	}
 
@@ -232,6 +256,31 @@ func (s *Store) UpdateDeviceStatus(ctx context.Context, uid models.UID, online b
 		UID:      device.UID,
 		TenantID: device.TenantID,
 		LastSeen: time.Now(),
+		Status:   device.Status,
+	}
+	if _, err := s.db.Collection("connected_devices").InsertOne(ctx, &cd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) UpdatePendingStatus(ctx context.Context, uid models.UID, status string) error {
+	device := new(models.Device)
+	if err := s.db.Collection("devices").FindOne(ctx, bson.M{"uid": uid}).Decode(&device); err != nil {
+		return err
+	}
+
+	opts := options.Update().SetUpsert(true)
+	_, err := s.db.Collection("devices").UpdateOne(ctx, bson.M{"uid": device.UID}, bson.M{"$set": bson.M{"status": status}}, opts)
+	if err != nil {
+		return err
+	}
+	cd := &models.ConnectedDevice{
+		UID:      device.UID,
+		TenantID: device.TenantID,
+		LastSeen: time.Now(),
+		Status:   status,
 	}
 	if _, err := s.db.Collection("connected_devices").InsertOne(ctx, &cd); err != nil {
 		return err
@@ -264,7 +313,7 @@ func (s *Store) ListSessions(ctx context.Context, pagination paginator.Query) ([
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -324,7 +373,7 @@ func (s *Store) GetSession(ctx context.Context, uid models.UID) (*models.Session
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -361,6 +410,7 @@ func (s *Store) SetSessionAuthenticated(ctx context.Context, uid models.UID, aut
 func (s *Store) CreateSession(ctx context.Context, session models.Session) (*models.Session, error) {
 	session.StartedAt = time.Now()
 	session.LastSeen = session.StartedAt
+	session.Recorded = false
 
 	device, err := s.GetDevice(ctx, session.DeviceUID)
 	if err != nil {
@@ -392,13 +442,19 @@ func (s *Store) GetStats(ctx context.Context) (*models.Stats, error) {
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append([]bson.M{{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
 			},
 		}}, query...)
 	}
+
+	query = append([]bson.M{{
+		"$match": bson.M{
+			"status": "accepted",
+		},
+	}}, query...)
 
 	onlineDevices, err := aggregateCount(ctx, s.db.Collection("connected_devices"), query)
 	if err != nil {
@@ -410,7 +466,30 @@ func (s *Store) GetStats(ctx context.Context) (*models.Stats, error) {
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
+		query = append([]bson.M{{
+			"$match": bson.M{
+				"tenant_id": tenant.ID,
+			},
+		}}, query...)
+	}
+	query = append([]bson.M{{
+		"$match": bson.M{
+			"status": "accepted",
+		},
+	}}, query...)
+
+	registeredDevices, err := aggregateCount(ctx, s.db.Collection("devices"), query)
+	if err != nil {
+		return nil, err
+	}
+
+	query = []bson.M{
+		{"$count": "count"},
+	}
+
+	// Only match for the respective tenant if requested
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append([]bson.M{{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -418,7 +497,37 @@ func (s *Store) GetStats(ctx context.Context) (*models.Stats, error) {
 		}}, query...)
 	}
 
-	registeredDevices, err := aggregateCount(ctx, s.db.Collection("devices"), query)
+	query = append([]bson.M{{
+		"$match": bson.M{
+			"status": "pending",
+		},
+	}}, query...)
+
+	pendingDevices, err := aggregateCount(ctx, s.db.Collection("devices"), query)
+	if err != nil {
+		return nil, err
+	}
+
+	query = []bson.M{
+		{"$count": "count"},
+	}
+
+	// Only match for the respective tenant if requested
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
+		query = append([]bson.M{{
+			"$match": bson.M{
+				"tenant_id": tenant.ID,
+			},
+		}}, query...)
+	}
+
+	query = append([]bson.M{{
+		"$match": bson.M{
+			"status": "rejected",
+		},
+	}}, query...)
+
+	rejectedDevices, err := aggregateCount(ctx, s.db.Collection("devices"), query)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +554,7 @@ func (s *Store) GetStats(ctx context.Context) (*models.Stats, error) {
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -465,6 +574,8 @@ func (s *Store) GetStats(ctx context.Context) (*models.Stats, error) {
 	return &models.Stats{
 		RegisteredDevices: registeredDevices,
 		OnlineDevices:     onlineDevices,
+		PendingDevices:    pendingDevices,
+		RejectedDevices:   rejectedDevices,
 		ActiveSessions:    activeSessions,
 	}, nil
 }
@@ -513,11 +624,41 @@ func (s *Store) DeactivateSession(ctx context.Context, uid models.UID) error {
 	_, err = s.db.Collection("active_sessions").DeleteMany(ctx, bson.M{"uid": session.UID})
 	return err
 }
+func (s *Store) RecordSession(ctx context.Context, uid models.UID, recordMessage string, width, height int) error {
+	record := new(models.RecordedSession)
+	session, _ := s.GetSession(ctx, uid)
+	record.UID = uid
+	record.Message = recordMessage
+	record.Width = width
+	record.Height = height
+	record.TenantID = session.TenantID
+	record.Time = time.Now()
+
+	if _, err := s.db.Collection("recorded_sessions").InsertOne(ctx, &record); err != nil {
+		return err
+	}
+
+	if _, err := s.db.Collection("sessions").UpdateOne(ctx, bson.M{"uid": uid}, bson.M{"$set": bson.M{"recorded": true}}); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	user := new(models.User)
 
 	if err := s.db.Collection("users").FindOne(ctx, bson.M{"username": username}).Decode(&user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *Store) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	user := new(models.User)
+
+	if err := s.db.Collection("users").FindOne(ctx, bson.M{"email": email}).Decode(&user); err != nil {
 		return nil, err
 	}
 
@@ -583,7 +724,7 @@ func (s *Store) ListFirewallRules(ctx context.Context, pagination paginator.Quer
 	}
 
 	// Only match for the respective tenant if requested
-	if tenant := store.TenantFromContext(ctx); tenant != nil {
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
 		query = append(query, bson.M{
 			"$match": bson.M{
 				"tenant_id": tenant.ID,
@@ -649,6 +790,87 @@ func (s *Store) DeleteFirewallRule(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *Store) GetRecord(ctx context.Context, uid models.UID) ([]models.RecordedSession, int, error) {
+	sessionRecord := make([]models.RecordedSession, 0)
+
+	query := []bson.M{
+		{
+			"$match": bson.M{"uid": uid},
+		},
+	}
+
+	//Only match for the respective tenant if requested
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
+		query = append(query, bson.M{
+			"$match": bson.M{
+				"tenant_id": tenant.ID,
+			},
+		})
+	}
+	cursor, err := s.db.Collection("recorded_sessions").Aggregate(ctx, query)
+	if err != nil {
+		return sessionRecord, 0, err
+	}
+
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		record := new(models.RecordedSession)
+		err = cursor.Decode(&record)
+		if err != nil {
+			return sessionRecord, 0, err
+		}
+
+		sessionRecord = append(sessionRecord, *record)
+	}
+
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
+		query = append(query, bson.M{
+			"$match": bson.M{
+				"tenant_id": tenant.ID,
+			},
+		})
+	}
+
+	query = append(query, bson.M{
+		"$count": "count",
+	})
+
+	count, err := aggregateCount(ctx, s.db.Collection("recorded_sessions"), query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return sessionRecord, count, nil
+}
+
+func (s *Store) UpdateUser(ctx context.Context, username, email, currentPassword, newPassword, tenant string) error {
+	user, err := s.GetUserByTenant(ctx, tenant)
+
+	if err != nil {
+		return err
+	}
+
+	if username != "" && username != user.Username {
+		if _, err := s.db.Collection("users").UpdateOne(ctx, bson.M{"tenant_id": tenant}, bson.M{"$set": bson.M{"username": username}}); err != nil {
+			return err
+		}
+	}
+
+	if email != "" && email != user.Email {
+		if _, err := s.db.Collection("users").UpdateOne(ctx, bson.M{"tenant_id": tenant}, bson.M{"$set": bson.M{"email": email}}); err != nil {
+			return err
+		}
+	}
+
+	if newPassword != "" && newPassword != currentPassword {
+		if _, err := s.db.Collection("users").UpdateOne(ctx, bson.M{"tenant_id": tenant}, bson.M{"$set": bson.M{"password": newPassword}}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func buildFilterQuery(filters []models.Filter) ([]bson.M, error) {
 	var queryMatch []bson.M
 	var queryFilter []bson.M
@@ -704,6 +926,46 @@ func buildFilterQuery(filters []models.Filter) ([]bson.M, error) {
 	}
 
 	return queryMatch, nil
+}
+
+func (s *Store) ListUsers(ctx context.Context, pagination paginator.Query) ([]models.User, int, error) {
+	query := []bson.M{}
+
+	// Only match for the respective tenant if requested
+	if tenant := apicontext.TenantFromContext(ctx); tenant != nil {
+		query = append(query, bson.M{
+			"$match": bson.M{
+				"tenant_id": tenant.ID,
+			},
+		})
+	}
+
+	queryCount := append(query, bson.M{"$count": "count"})
+	count, err := aggregateCount(ctx, s.db.Collection("users"), queryCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	query = append(query, buildPaginationQuery(pagination)...)
+
+	users := make([]models.User, 0)
+	cursor, err := s.db.Collection("users").Aggregate(ctx, query)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		user := new(models.User)
+		err = cursor.Decode(&user)
+		if err != nil {
+			return users, count, err
+		}
+
+		users = append(users, *user)
+	}
+
+	return users, count, err
 }
 
 func buildPaginationQuery(pagination paginator.Query) []bson.M {
