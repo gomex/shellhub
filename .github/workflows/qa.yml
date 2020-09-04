@@ -99,15 +99,6 @@ jobs:
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
       working-directory: ${{ matrix.project }}
       run: npm run test:unit -- -u
-    
-    - name: SonarCloud Scan [UI]
-      if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
-      uses: sonarsource/sonarcloud-github-action@master
-      with:
-        projectBaseDir: ui
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     - name: Save Code Linting Report JSON [UI]
       if: matrix.project == 'ui' && steps.filter.outputs.ui == 'true'
