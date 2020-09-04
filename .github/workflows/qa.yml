@@ -57,7 +57,7 @@ jobs:
       run: go mod download
 
     - name: Run Revive Action [Go]
-      if: matrix.project != 'ui'
+      if: matrix.project != 'ui' && steps.filter.outputs.go == 'true'
       run: |
         go get -u github.com/mgechev/revive
         revive -config .revive.toml --formatter stylish ./${{ matrix.project }}/...
