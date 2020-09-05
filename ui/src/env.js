@@ -10,3 +10,4 @@ export default {
   },
   /* eslint-enable no-param-reassign */
 };
+
