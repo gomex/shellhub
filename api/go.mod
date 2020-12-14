@@ -14,10 +14,11 @@ require (
 	github.com/klauspost/compress v1.10.10 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
+	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
-	github.com/mitchellh/mapstructure v1.3.3
+	github.com/mitchellh/mapstructure v1.4.0
 	github.com/parnurzeal/gorequest v0.2.16 // indirect
-	github.com/shellhub-io/shellhub v0.3.6
+	github.com/shellhub-io/shellhub v0.3.6 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/undefinedlabs/go-mpatch v1.0.6
@@ -25,7 +26,7 @@ require (
 	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/xakep666/mongo-migrate v0.2.1
 	go.mongodb.org/mongo-driver v1.4.0
-	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208 // indirect
 	golang.org/x/sys v0.0.0-20200806125547-5acd03effb82 // indirect
