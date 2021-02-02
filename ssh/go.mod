@@ -5,7 +5,7 @@ go 1.14
 require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/elazarl/goproxy v0.0.0-20200426045556-49ad98f6dac1 // indirect
-	github.com/gliderlabs/ssh v0.3.0
+	github.com/gliderlabs/ssh v0.3.2
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.6.6 // indirect
@@ -18,6 +18,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	moul.io/http2curl v1.0.0 // indirect
 )
 
