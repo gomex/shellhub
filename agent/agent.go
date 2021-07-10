@@ -73,3 +73,4 @@ func getDeviceInfo() (*models.DeviceInfo, error) {
 
 	return &models.DeviceInfo{ID: osrelease.ID, PrettyName: osrelease.Name}, nil
 }
+
