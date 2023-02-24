@@ -15,9 +15,9 @@ require (
 	github.com/shellhub-io/shellhub v0.3.6
 	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.7.0
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	moul.io/http2curl v1.0.0 // indirect
 )
 
